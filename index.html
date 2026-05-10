@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Checkout Conversion Case Study | Storm Jarvie</title>
+  <meta name="description" content="Root cause analysis of a 21pp checkout conversion decline. Interactive metric tree, hypothesis testing, and actionable recommendations.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Navigation -->
+  <nav class="nav" id="nav">
+    <div class="nav-inner">
+      <a href="#hero" class="nav-logo">SJ</a>
+      <div class="nav-links">
+        <a href="#metric">The Metric</a>
+        <a href="#tree">Metric Tree</a>
+        <a href="#decline">The Decline</a>
+        <a href="#root-cause">Root Cause</a>
+        <a href="#recommendations">Actions</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero" id="hero">
+    <div class="container">
+      <div class="hero-badge">Case Study</div>
+      <h1>Diagnosing a 21pp Checkout Conversion Decline</h1>
+      <p class="hero-subtitle">An end-to-end product analytics exercise: metric specification, metric tree decomposition, and root cause analysis for a fictional e-commerce platform.</p>
+      <div class="hero-stats">
+        <div class="stat-card">
+          <span class="stat-value">62.6%</span>
+          <span class="stat-label">Annual conversion rate</span>
+        </div>
+        <div class="stat-card stat-card--accent">
+          <span class="stat-value">-21pp</span>
+          <span class="stat-label">Q1 to Q4 decline</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-value">7</span>
+          <span class="stat-label">Hypotheses tested</span>
+        </div>
+      </div>
+      <div class="hero-context">
+        <p>Built as part of the <strong>AI Analyst for Builders</strong> course. All analysis performed on the NovaMart synthetic e-commerce dataset (50K users, 6.5M events, 47K orders) using Claude Code as an AI analytical partner.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Metric Definition -->
+  <section class="section section--alt" id="metric">
+    <div class="container">
+      <div class="section-label">Part A</div>
+      <h2>The Metric</h2>
+      <p class="section-intro">Before investigating a decline, you need a bulletproof definition. The metric spec took 5 iterations to get right.</p>
+
+      <div class="metric-card">
+        <div class="metric-card-header">
+          <h3>Checkout Conversion Rate</h3>
+          <span class="metric-value">62.6%</span>
+        </div>
+        <div class="metric-card-body">
+          <div class="metric-formula">
+            <code>COUNT(DISTINCT users with completed order within 30d) / COUNT(DISTINCT users with checkout_started) &times; 100</code>
+          </div>
+          <div class="metric-details">
+            <div class="metric-detail">
+              <span class="detail-label">Unit</span>
+              <span class="detail-value">Per user (deduplicated)</span>
+            </div>
+            <div class="metric-detail">
+              <span class="detail-label">Window</span>
+              <span class="detail-value">30 days from checkout start</span>
+            </div>
+            <div class="metric-detail">
+              <span class="detail-label">Numerator</span>
+              <span class="detail-value">27,206 users with completed orders</span>
+            </div>
+            <div class="metric-detail">
+              <span class="detail-label">Denominator</span>
+              <span class="detail-value">43,490 users who started checkout</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout callout--lesson">
+        <div class="callout-icon">&#128161;</div>
+        <div class="callout-content">
+          <strong>Why this matters:</strong> The first draft used session-based counting, which produced 33% instead of 63%. A user who tries checkout 3 times and succeeds once is a success story, not a 33% converter. Getting the unit of analysis wrong changes the entire narrative.
+        </div>
+      </div>
+
+      <!-- Dual Threshold Model -->
+      <h3 class="subsection-title">Health Monitoring: Dual Threshold Model</h3>
+      <p>Three iterations to get this right. The key insight: thresholds that only detect declines miss half the story.</p>
+      <div class="threshold-grid">
+        <div class="threshold-card threshold--change">
+          <h4>Change-Based Triggers</h4>
+          <p class="threshold-subtitle">Month-over-month, either direction</p>
+          <div class="threshold-item threshold-item--green">
+            <span class="threshold-badge">Normal</span>
+            <span>Within 3pp</span>
+          </div>
+          <div class="threshold-item threshold-item--yellow">
+            <span class="threshold-badge">Watch</span>
+            <span>3-5pp change</span>
+          </div>
+          <div class="threshold-item threshold-item--red">
+            <span class="threshold-badge">Investigate</span>
+            <span>5pp+ change</span>
+          </div>
+        </div>
+        <div class="threshold-card threshold--absolute">
+          <h4>Absolute Floor</h4>
+          <p class="threshold-subtitle">Catastrophic failure detection</p>
+          <div class="threshold-item threshold-item--red">
+            <span class="threshold-badge">Escalate</span>
+            <span>Below 25%</span>
+          </div>
+          <p class="threshold-note">Well below any observed rate. Likely systemic: payment gateway outage or broken checkout flow.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Metric Tree -->
+  <section class="section" id="tree">
+    <div class="container">
+      <div class="section-label">Part A</div>
+      <h2>Metric Tree</h2>
+      <p class="section-intro">Checkout conversion decomposes into three multiplicative steps. Click any node to explore. <span class="text-accent">Red nodes</span> indicate tracking gaps where instrumentation is missing.</p>
+
+      <div class="tree-verification">
+        <code>62.6% = 81.7% &times; 84.7% &times; 90.4%</code>
+        <span class="tree-check">&check; verified</span>
+      </div>
+
+      <div class="tree-container">
+        <!-- L0: Root -->
+        <div class="tree-level tree-level--root">
+          <div class="tree-node tree-node--root" data-expanded="true">
+            <div class="node-content">
+              <div class="node-title">Checkout Conversion Rate</div>
+              <div class="node-value">62.6%</div>
+              <div class="node-detail">27,206 / 43,490 users</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Connector lines L0 to L1 -->
+        <div class="tree-connectors">
+          <svg class="connector-svg" viewBox="0 0 900 40" preserveAspectRatio="none">
+            <path d="M450,0 L450,20 L150,20 L150,40" stroke="#1A4B33" stroke-width="2" fill="none" opacity="0.3"/>
+            <path d="M450,0 L450,40" stroke="#1A4B33" stroke-width="2" fill="none" opacity="0.3"/>
+            <path d="M450,0 L450,20 L750,20 L750,40" stroke="#1A4B33" stroke-width="2" fill="none" opacity="0.3"/>
+          </svg>
+        </div>
+
+        <!-- L1: Three drivers -->
+        <div class="tree-level tree-level--l1">
+          <div class="tree-node tree-node--l1 tree-node--expandable" id="node-c2p" onclick="toggleNode('c2p')">
+            <div class="node-expand-hint">Click to expand</div>
+            <div class="node-content">
+              <div class="node-operator">&times;</div>
+              <div class="node-title">Checkout &rarr; Payment</div>
+              <div class="node-value">81.7%</div>
+              <div class="node-detail">35,541 / 43,490 users</div>
+              <div class="node-loss">7,949 users lost (18.3%)</div>
+            </div>
+          </div>
+          <div class="tree-node tree-node--l1 tree-node--expandable" id="node-p2o" onclick="toggleNode('p2o')">
+            <div class="node-expand-hint">Click to expand</div>
+            <div class="node-content">
+              <div class="node-operator">&times;</div>
+              <div class="node-title">Payment &rarr; Order</div>
+              <div class="node-value">84.7%</div>
+              <div class="node-detail">30,097 / 35,541 users</div>
+              <div class="node-loss">5,444 users lost (15.3%)</div>
+            </div>
+          </div>
+          <div class="tree-node tree-node--l1 tree-node--expandable" id="node-oc" onclick="toggleNode('oc')">
+            <div class="node-expand-hint">Click to expand</div>
+            <div class="node-content">
+              <div class="node-operator">&times;</div>
+              <div class="node-title">Order Completion</div>
+              <div class="node-value">90.4%</div>
+              <div class="node-detail">27,206 / 30,097 users</div>
+              <div class="node-loss">2,891 users lost (9.6%)</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- L2 panels (hidden by default) -->
+        <div class="tree-detail" id="detail-c2p">
+          <div class="detail-header detail-header--gap">
+            <span class="gap-badge">Tracking Gap</span>
+            <h4>Ideal decomposition (not currently measurable)</h4>
+          </div>
+          <div class="detail-formula">
+            <code>Checkout-to-Payment = Address Entry &times; Shipping Selection &times; Payment Info Entry</code>
+          </div>
+          <div class="detail-nodes">
+            <div class="tree-node tree-node--gap">
+              <div class="node-content">
+                <div class="node-title">Address Entry Rate</div>
+                <div class="node-value node-value--gap">NOT TRACKED</div>
+                <div class="node-detail">Missing: address_entered event</div>
+              </div>
+            </div>
+            <div class="tree-node tree-node--gap">
+              <div class="node-content">
+                <div class="node-title">Shipping Selection Rate</div>
+                <div class="node-value node-value--gap">NOT TRACKED</div>
+                <div class="node-detail">Missing: shipping_selected event</div>
+              </div>
+            </div>
+            <div class="tree-node tree-node--gap">
+              <div class="node-content">
+                <div class="node-title">Payment Info Entry Rate</div>
+                <div class="node-value node-value--gap">NOT TRACKED</div>
+                <div class="node-detail">Missing: payment_info_entered event</div>
+              </div>
+            </div>
+          </div>
+          <div class="detail-insight">
+            <strong>Why this matters:</strong> 7,949 users drop off between starting checkout and attempting payment. Without intermediate events, we cannot diagnose whether they abandon at address entry, shipping selection, or payment info. Every checkout improvement is currently a guess.
+          </div>
+        </div>
+
+        <div class="tree-detail" id="detail-p2o">
+          <div class="detail-header detail-header--gap">
+            <span class="gap-badge">Tracking Gap</span>
+            <h4>Ideal decomposition (not currently measurable)</h4>
+          </div>
+          <div class="detail-formula">
+            <code>Payment-to-Order = Payment Authorization Rate &times; Order Confirmation Rate</code>
+          </div>
+          <div class="detail-nodes">
+            <div class="tree-node tree-node--gap">
+              <div class="node-content">
+                <div class="node-title">Payment Authorization Rate</div>
+                <div class="node-value node-value--gap">NOT TRACKED</div>
+                <div class="node-detail">Missing: payment_authorized event</div>
+              </div>
+            </div>
+            <div class="tree-node tree-node--gap">
+              <div class="node-content">
+                <div class="node-title">Payment Declined Rate</div>
+                <div class="node-value node-value--gap">NOT TRACKED</div>
+                <div class="node-detail">Missing: payment_declined event + reason</div>
+              </div>
+            </div>
+          </div>
+          <div class="detail-insight">
+            <strong>Partial proxy available:</strong> 15.1% of payment attempters filed a support ticket (category: payment_issue). But this only captures users who contact support. Many who hit a payment failure simply leave.
+          </div>
+        </div>
+
+        <div class="tree-detail" id="detail-oc">
+          <div class="detail-header">
+            <h4>Additive decomposition by outcome</h4>
+          </div>
+          <div class="detail-formula">
+            <code>100% = 78.4% + 12.0% + 6.5% + 3.1%</code>
+          </div>
+          <div class="detail-nodes detail-nodes--outcomes">
+            <div class="tree-node tree-node--outcome tree-node--good">
+              <div class="node-content">
+                <div class="node-title">Completed only</div>
+                <div class="node-value">78.4%</div>
+                <div class="node-detail">23,602 users. Clean conversions.</div>
+              </div>
+            </div>
+            <div class="tree-node tree-node--outcome tree-node--mixed">
+              <div class="node-content">
+                <div class="node-title">Completed + cancel/return</div>
+                <div class="node-value">12.0%</div>
+                <div class="node-detail">3,604 users. Converted but had a negative experience.</div>
+              </div>
+            </div>
+            <div class="tree-node tree-node--outcome tree-node--bad">
+              <div class="node-content">
+                <div class="node-title">Only cancelled</div>
+                <div class="node-value">6.5%</div>
+                <div class="node-detail">1,964 users. Total pre-fulfillment loss.</div>
+              </div>
+            </div>
+            <div class="tree-node tree-node--outcome tree-node--bad">
+              <div class="node-content">
+                <div class="node-title">Only returned</div>
+                <div class="node-value">3.1%</div>
+                <div class="node-detail">927 users. Total post-fulfillment loss.</div>
+              </div>
+            </div>
+          </div>
+          <div class="detail-insight">
+            <strong>Hidden quality signal:</strong> The headline 90.4% completion rate looks healthy, but only 78.4% had a clean experience. Nearly 1 in 8 "converted" users also had a cancellation or return. If this group grows, the completion rate masks deteriorating quality.
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- The Decline -->
+  <section class="section section--dark" id="decline">
+    <div class="container">
+      <div class="section-label section-label--light">Part B</div>
+      <h2>The Decline</h2>
+      <p class="section-intro section-intro--light">Monthly checkout conversion dropped from 68.1% to 30.0% over 2024. But the headline hides a more nuanced story.</p>
+
+      <div class="chart-container">
+        <canvas id="declineChart"></canvas>
+      </div>
+
+      <div class="chart-annotations">
+        <div class="annotation">
+          <span class="annotation-dot annotation-dot--green"></span>
+          <strong>Jan-May:</strong> Sharp decline as user base grows rapidly. Early months had a small, high-intent cohort.
+        </div>
+        <div class="annotation">
+          <span class="annotation-dot annotation-dot--blue"></span>
+          <strong>Jun-Oct:</strong> Stabilization around 30-33%. The "steady state" emerges.
+        </div>
+        <div class="annotation">
+          <span class="annotation-dot annotation-dot--orange"></span>
+          <strong>Nov:</strong> Black Friday spike to 34.3% (weekly peak: 52.3%).
+        </div>
+        <div class="annotation">
+          <span class="annotation-dot annotation-dot--red"></span>
+          <strong>Dec:</strong> Drop to 30.0% despite a Holiday Sale running all month.
+        </div>
+      </div>
+
+      <!-- Sub-step decomposition chart -->
+      <h3 class="subsection-title subsection-title--light">Where in the funnel?</h3>
+      <p class="chart-subtitle">The decline concentrates in the first two steps. Order completion stayed flat.</p>
+      <div class="chart-container">
+        <canvas id="substepChart"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <!-- Root Cause Analysis -->
+  <section class="section" id="root-cause">
+    <div class="container">
+      <div class="section-label">Part B</div>
+      <h2>Root Cause Analysis</h2>
+      <p class="section-intro">Five-step framework: Observation, Decomposition, Hypotheses, Testing, Findings. Click each step to see the working.</p>
+
+      <div class="rca-steps">
+        <!-- Step 1 -->
+        <div class="rca-step" id="rca-step-1">
+          <div class="rca-step-header" onclick="toggleRcaStep(1)">
+            <div class="rca-step-number">1</div>
+            <div class="rca-step-title">
+              <h3>Observation</h3>
+              <p>What exactly happened?</p>
+            </div>
+            <div class="rca-step-toggle">+</div>
+          </div>
+          <div class="rca-step-body">
+            <div class="rca-finding">
+              <p>Checkout conversion declined from <strong>69.2% (Q1)</strong> to <strong>46.3% (Q4)</strong>, a 22.9pp drop. Monthly cohort rates fell from 68.1% (Jan) to 30.0% (Dec).</p>
+              <p>November showed a temporary spike driven by a single Black Friday week (52.3%), which did not repeat during the December Holiday Sale despite similar promotional mechanics.</p>
+            </div>
+            <div class="rca-data-point">
+              <div class="data-point-grid">
+                <div class="data-point">
+                  <span class="data-point-value">43,490</span>
+                  <span class="data-point-label">Checkout starters (2024)</span>
+                </div>
+                <div class="data-point">
+                  <span class="data-point-value">1,446 &rarr; 19,358</span>
+                  <span class="data-point-label">Monthly starters: Jan vs Dec</span>
+                </div>
+                <div class="data-point">
+                  <span class="data-point-value">13&times;</span>
+                  <span class="data-point-label">Denominator growth</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="rca-step" id="rca-step-2">
+          <div class="rca-step-header" onclick="toggleRcaStep(2)">
+            <div class="rca-step-number">2</div>
+            <div class="rca-step-title">
+              <h3>Decomposition</h3>
+              <p>Break the metric into its components</p>
+            </div>
+            <div class="rca-step-toggle">+</div>
+          </div>
+          <div class="rca-step-body">
+            <div class="rca-finding">
+              <p>Two composition effects drive the decline, not a broken funnel:</p>
+            </div>
+            <div class="decomp-cards">
+              <div class="decomp-card">
+                <div class="decomp-card-header">
+                  <span class="decomp-number">1</span>
+                  <h4>New vs Returning Mix Shift</h4>
+                </div>
+                <div class="decomp-card-body">
+                  <p>Returning users grew from <strong>0%</strong> to <strong>71%</strong> of checkout starters. They convert at a stable ~29% vs ~50% for new users. As the lower-converting group grows, the blended rate falls mechanically.</p>
+                  <div class="decomp-visual">
+                    <div class="mix-bar">
+                      <div class="mix-segment mix-segment--new" style="width: 100%">
+                        <span>Jan: 100% new</span>
+                      </div>
+                    </div>
+                    <div class="mix-bar">
+                      <div class="mix-segment mix-segment--new" style="width: 29%">
+                        <span>29%</span>
+                      </div>
+                      <div class="mix-segment mix-segment--returning" style="width: 71%">
+                        <span>Dec: 71% returning</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="decomp-card">
+                <div class="decomp-card-header">
+                  <span class="decomp-number">2</span>
+                  <h4>Channel Mix Shift</h4>
+                </div>
+                <div class="decomp-card-body">
+                  <p>TikTok ads users convert at <strong>39-40%</strong> vs <strong>49-56%</strong> for organic and paid search. TikTok grew from zero to ~33% of new checkout users by Q4, dragging the blended rate down.</p>
+                  <div class="channel-bars">
+                    <div class="channel-bar">
+                      <span class="channel-label">Referral</span>
+                      <div class="channel-fill" style="width: 87%"><span>87.0%</span></div>
+                    </div>
+                    <div class="channel-bar">
+                      <span class="channel-label">Organic</span>
+                      <div class="channel-fill" style="width: 85.4%"><span>85.4%</span></div>
+                    </div>
+                    <div class="channel-bar">
+                      <span class="channel-label">Paid search</span>
+                      <div class="channel-fill" style="width: 84.3%"><span>84.3%</span></div>
+                    </div>
+                    <div class="channel-bar">
+                      <span class="channel-label">Email</span>
+                      <div class="channel-fill" style="width: 83.2%"><span>83.2%</span></div>
+                    </div>
+                    <div class="channel-bar">
+                      <span class="channel-label">Social</span>
+                      <div class="channel-fill" style="width: 82.2%"><span>82.2%</span></div>
+                    </div>
+                    <div class="channel-bar">
+                      <span class="channel-label">TikTok ads</span>
+                      <div class="channel-fill channel-fill--accent" style="width: 70.2%"><span>70.2%</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 3 -->
+        <div class="rca-step" id="rca-step-3">
+          <div class="rca-step-header" onclick="toggleRcaStep(3)">
+            <div class="rca-step-number">3</div>
+            <div class="rca-step-title">
+              <h3>Hypotheses</h3>
+              <p>Seven testable hypotheses across four cause categories</p>
+            </div>
+            <div class="rca-step-toggle">+</div>
+          </div>
+          <div class="rca-step-body">
+            <div class="hypothesis-grid">
+              <div class="hypothesis-card" data-verdict="confirmed">
+                <div class="hypothesis-header">
+                  <span class="hypothesis-id">H1</span>
+                  <span class="hypothesis-category">Mix Shift</span>
+                  <span class="hypothesis-verdict verdict--confirmed">Confirmed</span>
+                </div>
+                <p>Growing share of returning users (lower-converting) dilutes the blended rate mechanically</p>
+              </div>
+              <div class="hypothesis-card" data-verdict="confirmed">
+                <div class="hypothesis-header">
+                  <span class="hypothesis-id">H2</span>
+                  <span class="hypothesis-category">Mix Shift</span>
+                  <span class="hypothesis-verdict verdict--confirmed">Confirmed</span>
+                </div>
+                <p>Early-adopter effect: Jan cohort was small and high-intent, inflating the starting baseline</p>
+              </div>
+              <div class="hypothesis-card" data-verdict="partial">
+                <div class="hypothesis-header">
+                  <span class="hypothesis-id">H3</span>
+                  <span class="hypothesis-category">Technical</span>
+                  <span class="hypothesis-verdict verdict--partial">Partial</span>
+                </div>
+                <p>Mobile checkout degradation: mobile converts lower than web (44% vs 59%)</p>
+              </div>
+              <div class="hypothesis-card" data-verdict="confirmed">
+                <div class="hypothesis-header">
+                  <span class="hypothesis-id">H4</span>
+                  <span class="hypothesis-category">External</span>
+                  <span class="hypothesis-verdict verdict--confirmed">Confirmed</span>
+                </div>
+                <p>Promotional cannibalization: Holiday Sale discounts purchases that would have happened anyway</p>
+              </div>
+              <div class="hypothesis-card" data-verdict="plausible">
+                <div class="hypothesis-header">
+                  <span class="hypothesis-id">H5</span>
+                  <span class="hypothesis-category">External</span>
+                  <span class="hypothesis-verdict verdict--plausible">Plausible</span>
+                </div>
+                <p>Christmas shipping anxiety: Holiday Sale runs Dec 15-31 when delivery cutoffs close, with no express option and no delivery date visibility</p>
+              </div>
+              <div class="hypothesis-card" data-verdict="rejected">
+                <div class="hypothesis-header">
+                  <span class="hypothesis-id">H6</span>
+                  <span class="hypothesis-category">Product</span>
+                  <span class="hypothesis-verdict verdict--rejected">Rejected</span>
+                </div>
+                <p>Checkout form is the constraint: redesign experiment showed zero lift</p>
+              </div>
+              <div class="hypothesis-card" data-verdict="rejected">
+                <div class="hypothesis-header">
+                  <span class="hypothesis-id">H7</span>
+                  <span class="hypothesis-category">Product</span>
+                  <span class="hypothesis-verdict verdict--rejected">Rejected</span>
+                </div>
+                <p>Deferral features help: save-for-later experiment actually decreased conversion by 3.2pp</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 4 -->
+        <div class="rca-step" id="rca-step-4">
+          <div class="rca-step-header" onclick="toggleRcaStep(4)">
+            <div class="rca-step-number">4</div>
+            <div class="rca-step-title">
+              <h3>Testing</h3>
+              <p>The Black Friday vs Holiday Sale puzzle</p>
+            </div>
+            <div class="rca-step-toggle">+</div>
+          </div>
+          <div class="rca-step-body">
+            <div class="rca-finding">
+              <p>The most interesting finding: two similar promotions produced completely different results.</p>
+            </div>
+            <div class="comparison-table">
+              <div class="comparison-col">
+                <div class="comparison-header comparison-header--green">
+                  <h4>Black Friday</h4>
+                  <span class="comparison-verdict">+22pp lift</span>
+                </div>
+                <div class="comparison-body">
+                  <div class="comparison-row">
+                    <span class="comparison-label">Discount</span>
+                    <span class="comparison-value">25%</span>
+                  </div>
+                  <div class="comparison-row">
+                    <span class="comparison-label">Duration</span>
+                    <span class="comparison-value">7 days</span>
+                  </div>
+                  <div class="comparison-row">
+                    <span class="comparison-label">Returning user lift</span>
+                    <span class="comparison-value">+24pp (25% &rarr; 49%)</span>
+                  </div>
+                  <div class="comparison-row">
+                    <span class="comparison-label">Pull-forward</span>
+                    <span class="comparison-value">10.8% bought again in Dec</span>
+                  </div>
+                </div>
+              </div>
+              <div class="comparison-col">
+                <div class="comparison-header comparison-header--red">
+                  <h4>Holiday Sale</h4>
+                  <span class="comparison-verdict">0pp lift</span>
+                </div>
+                <div class="comparison-body">
+                  <div class="comparison-row">
+                    <span class="comparison-label">Discount</span>
+                    <span class="comparison-value">20%</span>
+                  </div>
+                  <div class="comparison-row">
+                    <span class="comparison-label">Duration</span>
+                    <span class="comparison-value">17 days</span>
+                  </div>
+                  <div class="comparison-row">
+                    <span class="comparison-label">Returning user lift</span>
+                    <span class="comparison-value">0pp (stayed at ~29%)</span>
+                  </div>
+                  <div class="comparison-row">
+                    <span class="comparison-label">Promo usage</span>
+                    <span class="comparison-value">100% of Dec orders used it</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="callout callout--insight">
+              <div class="callout-icon">&#128269;</div>
+              <div class="callout-content">
+                <strong>The insight:</strong> 100% promo usage with 0% conversion lift means the Holiday Sale is discounting purchases that would have happened anyway. The discount timing (Dec 15-31, when shipping cutoffs close and Christmas anxiety peaks) may actively work against conversion rather than for it.
+              </div>
+            </div>
+
+            <h4 class="experiment-title">A/B Test Results</h4>
+            <div class="experiment-grid">
+              <div class="experiment-card experiment--fail">
+                <h5>Checkout Redesign</h5>
+                <p class="experiment-period">Nov-Dec, 10,000 users</p>
+                <p class="experiment-result">Zero lift on conversion. The form is not the constraint.</p>
+              </div>
+              <div class="experiment-card experiment--fail">
+                <h5>Save for Later</h5>
+                <p class="experiment-period">Aug-Sep, 10,000 users</p>
+                <p class="experiment-result">-3.2pp conversion. Giving users an easy way to defer reduces purchase urgency.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 5 -->
+        <div class="rca-step" id="rca-step-5">
+          <div class="rca-step-header" onclick="toggleRcaStep(5)">
+            <div class="rca-step-number">5</div>
+            <div class="rca-step-title">
+              <h3>Findings</h3>
+              <p>The funnel is not broken. The story is composition.</p>
+            </div>
+            <div class="rca-step-toggle">+</div>
+          </div>
+          <div class="rca-step-body">
+            <div class="findings-grid">
+              <div class="finding-card finding-card--primary">
+                <div class="finding-number">1</div>
+                <h4>The decline is a composition effect</h4>
+                <p>Growing share of returning users (0% to 71%) and TikTok channel mix shift mechanically lower the blended rate. Individual segment rates are stable or improving. This is normal for a growing platform.</p>
+              </div>
+              <div class="finding-card">
+                <div class="finding-number">2</div>
+                <h4>Returning users CAN convert at high rates</h4>
+                <p>They hit 49% during Black Friday (vs baseline 29%). The ceiling is structural but not permanent. Urgency interventions work; deferral features backfire.</p>
+              </div>
+              <div class="finding-card">
+                <div class="finding-number">3</div>
+                <h4>The checkout form is not the constraint</h4>
+                <p>The redesign experiment proved this. Two of three metric tree L2 levels have tracking gaps. We cannot diagnose further without instrumenting intermediate checkout events.</p>
+              </div>
+              <div class="finding-card">
+                <div class="finding-number">4</div>
+                <h4>The Holiday Sale is pure waste</h4>
+                <p>100% promo usage + 0% conversion lift = discounting purchases that would have happened anyway. Restructure or eliminate.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Recommendations -->
+  <section class="section section--alt" id="recommendations">
+    <div class="container">
+      <div class="section-label">Recommendations</div>
+      <h2>What To Do Next</h2>
+
+      <div class="rec-timeline">
+        <div class="rec-phase">
+          <div class="rec-phase-header">
+            <span class="rec-phase-badge rec-phase-badge--now">This Sprint</span>
+          </div>
+          <div class="rec-cards">
+            <div class="rec-card">
+              <h4>Instrument the checkout funnel</h4>
+              <p>Add address_entered, shipping_selected, payment_info_entered events. Without them, every checkout improvement is a guess.</p>
+              <span class="rec-impact">Unlocks targeted fixes</span>
+            </div>
+            <div class="rec-card">
+              <h4>Add estimated delivery date to checkout</h4>
+              <p>Only one shipping tier ($5.99 standard), no delivery visibility. Tests the shipping anxiety hypothesis directly.</p>
+              <span class="rec-impact">Builds purchase confidence</span>
+            </div>
+            <div class="rec-card">
+              <h4>Run checkout exit survey for returning users</h4>
+              <p>The 29% ceiling is structural (flat across devices, channels, attempt count). We don't know WHY these users start checkout without buying.</p>
+              <span class="rec-impact">Identifies the actual barrier</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="rec-phase">
+          <div class="rec-phase-header">
+            <span class="rec-phase-badge rec-phase-badge--next">Next Quarter</span>
+          </div>
+          <div class="rec-cards">
+            <div class="rec-card">
+              <h4>Evaluate TikTok on revenue per acquired user</h4>
+              <p>Lower conversion may be offset by lower CPA. Benchmark separately from organic/paid search.</p>
+            </div>
+            <div class="rec-card">
+              <h4>Redesign the Holiday Sale</h4>
+              <p>Start earlier in December (Dec 1-14) to align with shipping windows, or offer free/reduced express shipping with guaranteed pre-Christmas delivery instead of a product discount.</p>
+            </div>
+            <div class="rec-card">
+              <h4>Test urgency interventions for returning users</h4>
+              <p>Limited-time pricing, low-stock indicators. Black Friday proves they convert at 49% under urgency. Avoid deferral features.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="rec-phase">
+          <div class="rec-phase-header">
+            <span class="rec-phase-badge rec-phase-badge--dont">Do NOT</span>
+          </div>
+          <div class="rec-cards rec-cards--dont">
+            <div class="rec-card rec-card--dont">
+              <h4>Redesign the checkout form again</h4>
+              <p>The experiment proved the form is not the constraint.</p>
+            </div>
+            <div class="rec-card rec-card--dont">
+              <h4>Add save/wishlist features</h4>
+              <p>The save-for-later experiment showed these reduce conversion.</p>
+            </div>
+            <div class="rec-card rec-card--dont">
+              <h4>Panic about the year-long decline</h4>
+              <p>It is a composition effect from user base growth, not a broken funnel.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Methodology / About -->
+  <section class="section section--dark" id="methodology">
+    <div class="container">
+      <h2>Methodology</h2>
+      <div class="method-grid">
+        <div class="method-card">
+          <h4>Dataset</h4>
+          <p>NovaMart synthetic e-commerce dataset: 50,000 users, 6.5M events, 47,199 orders across 2024. 12 tables including experiments, support tickets, and promotions.</p>
+        </div>
+        <div class="method-card">
+          <h4>Tools</h4>
+          <p>Claude Code as AI analytical partner. DuckDB for querying. Python (matplotlib) for visualization. Notion for documentation.</p>
+        </div>
+        <div class="method-card">
+          <h4>Framework</h4>
+          <p>Metric Anatomy Template for specification. 5-step root cause framework: Observation, Decomposition, Hypotheses, Testing, Findings. Dual-threshold health monitoring.</p>
+        </div>
+        <div class="method-card">
+          <h4>Collaboration</h4>
+          <p>AI generated first drafts; human challenged assumptions, caught definition errors (session vs user), pushed back on conceptual mistakes (segments vs drivers), and contributed domain hypotheses (shipping anxiety). 5 iterations on the metric tree alone.</p>
+        </div>
+      </div>
+      <div class="method-footer">
+        <p>Built by <a href="https://stormjarvie.com" target="_blank" rel="noopener">Storm Jarvie</a> as part of the AI Analyst for Builders course.</p>
+      </div>
+    </div>
+  </section>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
